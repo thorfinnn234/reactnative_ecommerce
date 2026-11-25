@@ -1,0 +1,171 @@
+// Money rule: every amount is an Int in kobo (₦1 = 100 kobo). Never Float/Decimal.
+// CHECK constraints (stock >= 0, quantity > 0, etc.) can't be expressed in Prisma schema;
+// they are added as raw SQL in the init migration.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+// Allowed transitions (enforced in the API, Phase 4):
+// PENDING -> PAID -> SHIPPED -> DELIVERED, and PENDING|PAID -> CANCELLED
+enum OrderStatus {
+  PENDING
+  PAID
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  ABANDONED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         Role     @default(CUSTOMER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  cart   Cart?
+  orders Order[]
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products Product[]
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String
+  price       Int // kobo
+  stock       Int      @default(0) // CHECK (stock >= 0)
+  isActive    Boolean  @default(true)
+  categoryId  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  category   Category       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  images     ProductImage[]
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  @@index([categoryId])
+  @@index([isActive, createdAt])
+}
+
+model ProductImage {
+  id        String   @id @default(cuid())
+  productId String
+  url       String
+  publicId  String? // Cloudinary public_id, needed to delete/transform the asset
+  alt       String?
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, position])
+}
+
+model Cart {
+  id        String   @id @default(cuid())
+  userId    String   @unique // one server-side cart per user
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CartItem[]
+}
+
+model CartItem {
+  id        String   @id @default(cuid())
+  cartId    String
+  productId String
+  quantity  Int // CHECK (quantity > 0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId, productId])
+}
+
+model Order {
+  id          String      @id @default(cuid())
+  userId      String
+  status      OrderStatus @default(PENDING)
+  totalAmount Int // kobo, recalculated from DB prices at checkout
+  currency    String      @default("NGN")
+  paidAt      DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  user     User        @relation(fields: [userId], references: [id], onDelete: Restrict)
+  items    OrderItem[]
+  payments Payment[]
+
+  @@index([userId, createdAt])
+  @@index([status])
+}
+
+model OrderItem {
+  id          String  @id @default(cuid())
+  orderId     String
+  // Nullable + SetNull: deleting a product must not erase order history.
+  productId   String?
+  // Snapshots taken at purchase time — later product edits don't change past orders.
+  productName String
+  unitPrice   Int // kobo
+  quantity    Int // CHECK (quantity > 0)
+
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model Payment {
+  id        String        @id @default(cuid())
+  orderId   String
+  provider  String        @default("paystack")
+  // UNIQUE: a replayed webhook for the same reference can't create/apply a second payment.
+  reference String        @unique
+  amount    Int // kobo
+  currency  String        @default("NGN")
+  status    PaymentStatus @default(PENDING)
+  paidAt    DateTime?
+  rawEvent  Json? // last provider payload, for debugging/audit
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  // An order may have several attempts (e.g. user abandons and retries checkout).
+  order Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+}
