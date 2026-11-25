@@ -1,0 +1,11 @@
+# Expo-specific ignores (root .gitignore covers node_modules, .env, etc.)
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+.kotlin/
+*.orig.*
+.metro-health-check*
+*.pem
+/ios
+/android
