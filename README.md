@@ -28,7 +28,32 @@ cp apps/mobile/.env.example apps/mobile/.env
 
 # Start Postgres (postgres:17, user/password/db = ecom/ecom on localhost:5432)
 pnpm db:up
+
+# Apply migrations and load sample data (5 categories, 20 products)
+pnpm db:migrate
+pnpm db:seed
 ```
+
+## Database (Prisma 7)
+
+Prisma lives in `apps/api`. Run commands from the repo root:
+
+```bash
+pnpm db:migrate              # create/apply migrations (prisma migrate dev)
+pnpm db:seed                 # idempotent seed (safe to re-run)
+pnpm db:studio               # browse data in Prisma Studio
+pnpm db:reset                # drop + re-apply all migrations (then run db:seed — v7 no longer auto-seeds)
+pnpm prisma <any args>       # raw Prisma CLI, e.g. `pnpm prisma migrate dev --name add_x`
+```
+
+- **Money is always an `Int` in kobo** (₦1 = 100 kobo). Format to naira only for display.
+- **CHECK constraints** (`stock >= 0`, quantities `> 0`, amounts non-negative) can't be written
+  in `schema.prisma`, so they're hand-added SQL at the bottom of the `init` migration. If you
+  create a migration that recreates those tables, re-add them.
+- The generated client goes to `apps/api/src/generated/prisma` (git-ignored). It is regenerated
+  on `pnpm install`, or manually with `pnpm --filter @ecom/api db:generate`.
+- Prisma 7 doesn't auto-load `.env`; `prisma.config.ts` loads it with Node's built-in
+  `process.loadEnvFile()`.
 
 ## Running
 
