@@ -5,3 +5,5 @@ packages:
 # pnpm blocks dependency install scripts by default; only these packages may run them.
 allowBuilds:
   esbuild: true
+  prisma: true
+  '@prisma/engines': true

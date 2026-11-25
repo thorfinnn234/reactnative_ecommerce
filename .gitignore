@@ -36,3 +36,6 @@ Thumbs.db
 
 # test coverage
 coverage/
+
+# Prisma generated client (run `pnpm db:generate`; also runs on install)
+apps/api/src/generated/

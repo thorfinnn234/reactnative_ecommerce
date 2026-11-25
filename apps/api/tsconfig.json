@@ -9,8 +9,7 @@
     "customConditions": ["@ecom/source"],
     "rewriteRelativeImportExtensions": true,
     "outDir": "dist",
-    "rootDir": "src",
     "sourceMap": true
   },
-  "include": ["src"]
+  "include": ["src", "prisma", "prisma.config.ts"]
 }

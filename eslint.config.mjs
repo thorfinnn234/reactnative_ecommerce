@@ -17,7 +17,7 @@ export default defineConfig(
     'apps/mobile/android/**',
     '**/expo-env.d.ts',
     '**/nativewind-env.d.ts',
-    '**/prisma/generated/**',
+    '**/src/generated/**',
   ]),
 
   js.configs.recommended,

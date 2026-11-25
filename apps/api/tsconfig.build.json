@@ -1,8 +1,10 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
+    "rootDir": "src",
     // The built server must consume @ecom/shared's compiled dist/, not its .ts source.
     "customConditions": []
   },
+  "include": ["src"],
   "exclude": ["src/**/*.test.ts"]
 }
